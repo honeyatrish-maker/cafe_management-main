@@ -92,6 +92,12 @@ def get_db_connection():
         raise RuntimeError('Unable to connect to the configured database. Check DB_HOST/DB_USER/DB_PASSWORD/DB_NAME or DB_URL/DATABASE_URL.') from err
 
 
+@app.errorhandler(404)
+def handle_not_found(error):
+    app.logger.warning('Page not found: %s', request.path)
+    return render_template('error.html', message='Page not found. Please return to the home page.'), 404
+
+
 @app.errorhandler(Exception)
 def handle_exception(error):
     app.logger.exception('Unhandled exception during request')
