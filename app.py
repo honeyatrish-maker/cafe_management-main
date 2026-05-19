@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import check_password_hash, generate_password_hash
 import mysql.connector
 from mysql.connector import Error
+import sqlite3
 from functools import wraps
 import json
 import os
@@ -10,6 +11,9 @@ from urllib.parse import urlparse, unquote
 app = Flask(__name__)
 # Use environment variable for secret key in production
 app.secret_key = os.environ.get('SECRET_KEY', 'your_secret_key_here')
+
+INSTANCE_DIR = os.path.join(os.path.dirname(__file__), 'instance')
+SQLITE_DB_PATH = os.path.join(INSTANCE_DIR, 'cafe_management.db')
 
 
 def get_env_var(*names, default=None):
@@ -71,36 +75,177 @@ def build_db_config():
 
     return config
 
-# Database configuration (use environment variables on Render)
+
+class SQLiteCursor(sqlite3.Cursor):
+    def execute(self, sql, params=()):
+        return super().execute(sql.replace('%s', '?'), params)
+
+    def executemany(self, sql, seq_of_params):
+        return super().executemany(sql.replace('%s', '?'), seq_of_params)
+
+
+class SQLiteConnection(sqlite3.Connection):
+    def cursor(self, factory=SQLiteCursor, *args, **kwargs):
+        kwargs.pop('dictionary', None)
+        return super().cursor(factory, *args, **kwargs)
+
+
+def build_sqlite_connection():
+    os.makedirs(INSTANCE_DIR, exist_ok=True)
+    conn = sqlite3.connect(SQLITE_DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES, factory=SQLiteConnection)
+    conn.row_factory = sqlite3.Row
+    ensure_sqlite_schema(conn)
+    return conn
+
+
+def ensure_sqlite_schema(conn):
+    cursor = conn.cursor()
+    cursor.execute('PRAGMA foreign_keys = ON')
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+    if cursor.fetchone():
+        return
+
+    cursor.executescript('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT DEFAULT 'admin',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS menu_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            price REAL NOT NULL,
+            category TEXT,
+            available INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS tables (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            table_number INTEGER UNIQUE NOT NULL,
+            capacity INTEGER DEFAULT 4,
+            status TEXT DEFAULT 'available'
+        );
+
+        CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER,
+            table_id INTEGER,
+            order_time TEXT DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'pending',
+            total_amount REAL DEFAULT 0,
+            FOREIGN KEY (customer_id) REFERENCES customers(id),
+            FOREIGN KEY (table_id) REFERENCES tables(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            menu_item_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            price REAL NOT NULL,
+            FOREIGN KEY (order_id) REFERENCES orders(id),
+            FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            payment_method TEXT DEFAULT 'cash',
+            payment_time TEXT DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'pending',
+            FOREIGN KEY (order_id) REFERENCES orders(id)
+        );
+    ''')
+    insert_sqlite_sample_data(conn)
+    conn.commit()
+
+
+def insert_sqlite_sample_data(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) as count FROM users")
+    if cursor.fetchone()['count'] == 0:
+        cursor.execute(
+            'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+            ('admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj6fMJyUq7K6', 'admin')
+        )
+
+    cursor.execute("SELECT COUNT(*) as count FROM menu_items")
+    if cursor.fetchone()['count'] == 0:
+        menu_items = [
+            ('Espresso', 'Strong coffee shot', 3.50, 'Beverages'),
+            ('Cappuccino', 'Coffee with steamed milk and foam', 4.50, 'Beverages'),
+            ('Latte', 'Coffee with steamed milk', 4.00, 'Beverages'),
+            ('Americano', 'Diluted espresso', 3.00, 'Beverages'),
+            ('Croissant', 'Buttery pastry', 2.50, 'Bakery'),
+            ('Muffin', 'Fresh baked muffin', 3.00, 'Bakery'),
+            ('Sandwich', 'Ham and cheese sandwich', 6.50, 'Food'),
+            ('Salad', 'Fresh garden salad', 7.00, 'Food'),
+            ('Pasta', 'Creamy pasta dish', 8.50, 'Food'),
+            ('Burger', 'Classic beef burger', 9.00, 'Food')
+        ]
+        cursor.executemany(
+            'INSERT INTO menu_items (name, description, price, category) VALUES (?, ?, ?, ?)',
+            menu_items
+        )
+
+    cursor.execute("SELECT COUNT(*) as count FROM tables")
+    if cursor.fetchone()['count'] == 0:
+        cursor.executemany(
+            'INSERT INTO tables (table_number, capacity) VALUES (?, ?)',
+            [(1, 2), (2, 4), (3, 6), (4, 2), (5, 4), (6, 8)]
+        )
+
+    cursor.execute("SELECT COUNT(*) as count FROM customers")
+    if cursor.fetchone()['count'] == 0:
+        customers = [
+            ('John Doe', '123-456-7890', 'john@example.com'),
+            ('Jane Smith', '098-765-4321', 'jane@example.com')
+        ]
+        cursor.executemany(
+            'INSERT INTO customers (name, phone, email) VALUES (?, ?, ?)',
+            customers
+        )
+
+    conn.commit()
+
+
 DB_CONFIG = build_db_config()
+USE_MYSQL = bool(DB_CONFIG['host'] and DB_CONFIG['user'] and DB_CONFIG['password'] and DB_CONFIG['database'])
+
+# Database configuration (use environment variables on Render)
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
 
 
 def get_db_connection():
-    missing = [key for key in ('host', 'user', 'password', 'database') if not DB_CONFIG.get(key)]
-    config_status = {
-        'DB_URL': bool(get_env_var('DB_URL', 'DATABASE_URL', 'MYSQL_DATABASE_URL', 'CLEARDB_DATABASE_URL', 'RENDER_DATABASE_URL')),
-        'DB_HOST': bool(get_env_var('DB_HOST', 'MYSQL_HOST', 'MYSQL_HOSTNAME', 'DB_SERVER', 'MYSQL_SERVER', 'HOST')),
-        'DB_USER': bool(get_env_var('DB_USER', 'MYSQL_USER', 'DB_USERNAME', 'MYSQL_USERNAME', 'USER')),
-        'DB_PASSWORD': bool(get_env_var('DB_PASSWORD', 'MYSQL_PASSWORD', 'PASSWORD')),
-        'DB_NAME': bool(get_env_var('DB_NAME', 'MYSQL_DATABASE', 'DATABASE', 'SCHEMA')),
-        'DB_PORT': bool(get_env_var('DB_PORT', 'MYSQL_PORT', 'PORT'))
-    }
+    if USE_MYSQL:
+        missing = [key for key in ('host', 'user', 'password', 'database') if not DB_CONFIG.get(key)]
+        if missing:
+            app.logger.warning('Incomplete MySQL configuration, falling back to SQLite: %s', missing)
+            return build_sqlite_connection()
+        try:
+            return mysql.connector.connect(**DB_CONFIG)
+        except Error as err:
+            app.logger.error('Database connection failed: %s', err)
+            app.logger.warning('Falling back to SQLite due to MySQL connection failure')
+            return build_sqlite_connection()
 
-    if missing:
-        app.logger.error('Database config missing fields: %s. Env presence: %s', missing, config_status)
-        raise RuntimeError(
-            f"Missing database configuration: {', '.join(missing)}. "
-            "Set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME or provide DB_URL/DATABASE_URL/MYSQL_DATABASE_URL. "
-            f"Detected env presence: {', '.join([key for key, present in config_status.items() if present]) or 'none'}."
-        )
-    try:
-        return mysql.connector.connect(**DB_CONFIG)
-    except Error as err:
-        app.logger.error('Database connection failed: %s', err)
-        raise RuntimeError('Unable to connect to the configured database. Check DB_HOST/DB_USER/DB_PASSWORD/DB_NAME or DB_URL/DATABASE_URL.') from err
+    return build_sqlite_connection()
 
 
 @app.errorhandler(404)
