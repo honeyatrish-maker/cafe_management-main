@@ -25,7 +25,9 @@ def parse_database_url(url):
         return {}
 
     parsed = urlparse(url)
-    if parsed.scheme not in ('mysql', 'mysql+mysqlconnector', 'mysql+mysql'):
+    if parsed.scheme not in (
+        'mysql', 'mysql+mysqlconnector', 'mysql+mysql', 'mysql2', 'mysql+pymysql', 'mysql+mysqldb'
+    ):
         return {}
 
     db_name = parsed.path.lstrip('/') if parsed.path else None
@@ -40,14 +42,24 @@ def parse_database_url(url):
 
 def build_db_config():
     config = parse_database_url(
-        get_env_var('DB_URL', 'DATABASE_URL', 'MYSQL_DATABASE_URL', 'CLEARDB_DATABASE_URL')
+        get_env_var(
+            'DB_URL', 'DATABASE_URL', 'MYSQL_DATABASE_URL', 'CLEARDB_DATABASE_URL', 'RENDER_DATABASE_URL'
+        )
     )
 
-    config['host'] = config.get('host') or get_env_var('DB_HOST', 'MYSQL_HOST', 'MYSQL_HOSTNAME')
-    config['user'] = config.get('user') or get_env_var('DB_USER', 'MYSQL_USER')
-    config['password'] = config.get('password') or get_env_var('DB_PASSWORD', 'MYSQL_PASSWORD')
-    config['database'] = config.get('database') or get_env_var('DB_NAME', 'MYSQL_DATABASE')
-    config['port'] = int(get_env_var('DB_PORT', 'MYSQL_PORT', default=str(config.get('port', 3306))))
+    config['host'] = config.get('host') or get_env_var(
+        'DB_HOST', 'MYSQL_HOST', 'MYSQL_HOSTNAME', 'DB_SERVER', 'MYSQL_SERVER', 'HOST'
+    )
+    config['user'] = config.get('user') or get_env_var(
+        'DB_USER', 'MYSQL_USER', 'DB_USERNAME', 'MYSQL_USERNAME', 'USER'
+    )
+    config['password'] = config.get('password') or get_env_var(
+        'DB_PASSWORD', 'MYSQL_PASSWORD', 'PASSWORD'
+    )
+    config['database'] = config.get('database') or get_env_var(
+        'DB_NAME', 'MYSQL_DATABASE', 'DATABASE', 'SCHEMA'
+    )
+    config['port'] = int(get_env_var('DB_PORT', 'MYSQL_PORT', 'PORT', default=str(config.get('port', 3306))))
 
     return config
 
