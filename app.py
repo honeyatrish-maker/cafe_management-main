@@ -5,10 +5,12 @@ from mysql.connector import Error
 from functools import wraps
 import json
 import os
+from urllib.parse import urlparse, unquote
 
 app = Flask(__name__)
 # Use environment variable for secret key in production
 app.secret_key = os.environ.get('SECRET_KEY', 'your_secret_key_here')
+
 
 def get_env_var(*names, default=None):
     for name in names:
@@ -17,14 +19,40 @@ def get_env_var(*names, default=None):
             return value
     return default
 
+
+def parse_database_url(url):
+    if not url:
+        return {}
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ('mysql', 'mysql+mysqlconnector', 'mysql+mysql'):
+        return {}
+
+    db_name = parsed.path.lstrip('/') if parsed.path else None
+    return {
+        'host': parsed.hostname,
+        'user': unquote(parsed.username) if parsed.username else None,
+        'password': unquote(parsed.password) if parsed.password else None,
+        'database': db_name,
+        'port': parsed.port or 3306
+    }
+
+
+def build_db_config():
+    config = parse_database_url(
+        get_env_var('DB_URL', 'DATABASE_URL', 'MYSQL_DATABASE_URL', 'CLEARDB_DATABASE_URL')
+    )
+
+    config['host'] = config.get('host') or get_env_var('DB_HOST', 'MYSQL_HOST', 'MYSQL_HOSTNAME')
+    config['user'] = config.get('user') or get_env_var('DB_USER', 'MYSQL_USER')
+    config['password'] = config.get('password') or get_env_var('DB_PASSWORD', 'MYSQL_PASSWORD')
+    config['database'] = config.get('database') or get_env_var('DB_NAME', 'MYSQL_DATABASE')
+    config['port'] = int(get_env_var('DB_PORT', 'MYSQL_PORT', default=str(config.get('port', 3306))))
+
+    return config
+
 # Database configuration (use environment variables on Render)
-DB_CONFIG = {
-    'host': get_env_var('DB_HOST', 'MYSQL_HOST'),
-    'user': get_env_var('DB_USER', 'MYSQL_USER'),
-    'password': get_env_var('DB_PASSWORD', 'MYSQL_PASSWORD'),
-    'database': get_env_var('DB_NAME', 'MYSQL_DATABASE'),
-    'port': int(get_env_var('DB_PORT', 'MYSQL_PORT', default='3306'))
-}
+DB_CONFIG = build_db_config()
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -35,7 +63,7 @@ def get_db_connection():
     if missing:
         raise RuntimeError(
             f"Missing database configuration: {', '.join(missing)}. "
-            "Set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME (or MYSQL_HOST/MYSQL_USER/MYSQL_PASSWORD/MYSQL_DATABASE)."
+            "Set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME, or provide DB_URL/DATABASE_URL/MYSQL_DATABASE_URL."
         )
     return mysql.connector.connect(**DB_CONFIG)
 
