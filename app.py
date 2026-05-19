@@ -80,10 +80,21 @@ app.config['SESSION_TYPE'] = 'filesystem'
 
 def get_db_connection():
     missing = [key for key in ('host', 'user', 'password', 'database') if not DB_CONFIG.get(key)]
+    config_status = {
+        'DB_URL': bool(get_env_var('DB_URL', 'DATABASE_URL', 'MYSQL_DATABASE_URL', 'CLEARDB_DATABASE_URL', 'RENDER_DATABASE_URL')),
+        'DB_HOST': bool(get_env_var('DB_HOST', 'MYSQL_HOST', 'MYSQL_HOSTNAME', 'DB_SERVER', 'MYSQL_SERVER', 'HOST')),
+        'DB_USER': bool(get_env_var('DB_USER', 'MYSQL_USER', 'DB_USERNAME', 'MYSQL_USERNAME', 'USER')),
+        'DB_PASSWORD': bool(get_env_var('DB_PASSWORD', 'MYSQL_PASSWORD', 'PASSWORD')),
+        'DB_NAME': bool(get_env_var('DB_NAME', 'MYSQL_DATABASE', 'DATABASE', 'SCHEMA')),
+        'DB_PORT': bool(get_env_var('DB_PORT', 'MYSQL_PORT', 'PORT'))
+    }
+
     if missing:
+        app.logger.error('Database config missing fields: %s. Env presence: %s', missing, config_status)
         raise RuntimeError(
             f"Missing database configuration: {', '.join(missing)}. "
-            "Set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME, or provide DB_URL/DATABASE_URL/MYSQL_DATABASE_URL."
+            "Set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME or provide DB_URL/DATABASE_URL/MYSQL_DATABASE_URL. "
+            f"Detected env presence: {', '.join([key for key, present in config_status.items() if present]) or 'none'}."
         )
     try:
         return mysql.connector.connect(**DB_CONFIG)
