@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Orders - Continental Cafe{% endblock %}
+
+{% block content %}
+<h2>Orders</h2>
+
+<div class="order-actions">
+    <button id="create-order-btn" class="btn btn-primary">Create New Order</button>
+</div>
+
+<div id="create-order-form" class="form-container" style="display: none;">
+    <h3>Create New Order</h3>
+    <form method="POST">
+        <input type="hidden" name="create_order" value="1">
+        <div class="form-group">
+            <label for="customer_name">Customer Name:</label>
+            <input type="text" id="customer_name" name="customer_name" required>
+        </div>
+        <div class="form-group">
+            <label for="table_id">Table:</label>
+            <select id="table_id" name="table_id" required>
+                {% for table in available_tables %}
+                <option value="{{ table.id }}">Table {{ table.table_number }} ({{ table.capacity }} seats)</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Order</button>
+        <button type="button" id="cancel-create" class="btn btn-secondary">Cancel</button>
+    </form>
+</div>
+
+<h3>Recent Orders</h3>
+<div class="orders-list">
+    {% for order in recent_orders %}
+    <div class="order-item">
+        <div class="order-info">
+            <h4>Order #{{ order.id }}</h4>
+            <p>Customer: {{ order.customer_name or 'Walk-in' }}</p>
+            <p>Table: {{ order.table_number }}</p>
+            <p>Time: {{ order.order_time.strftime('%Y-%m-%d %H:%M') }}</p>
+            <p>Status: <span class="status status-{{ order.status }}">{{ order.status }}</span></p>
+            <p>Total: ₹{{ "%.2f"|format(order.total_amount) }}</p>
+        </div>
+        <div class="order-actions">
+            <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-primary">View Details</a>
+            {% if order.status != 'served' and order.status != 'cancelled' %}
+            <a href="{{ url_for('billing', order_id=order.id) }}" class="btn btn-secondary">Bill</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

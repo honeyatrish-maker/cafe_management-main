@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+    <title>{% block title %}Cafe Menu{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+</head>
+<body>
+    <header class="public-header">
+        <div class="container header-grid">
+            <a href="{{ url_for('index') }}" class="brand-link">
+                <div class="brand-mark"><i class="fas fa-coffee"></i></div>
+                <div class="brand-text">
+                    <h1>Continental Cafe</h1>
+                    <p>Fresh orders, easy service.</p>
+                </div>
+            </a>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-cart" id="cart-toggle" type="button">
+                    <span>Cart</span>
+                    <span id="cart-count">0</span>
+                </button>
+                <a href="{{ url_for('admin_login') }}" class="btn btn-secondary btn-outline">Admin Login</a>
+                <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+                    <span class="sr-only">Toggle theme</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="public-footer">
+        <div class="container">
+            <p>&copy; 2024 Continental Cafe. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

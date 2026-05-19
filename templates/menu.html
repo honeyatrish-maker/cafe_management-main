@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Menu Management - Continental Cafe{% endblock %}
+
+{% block content %}
+<h2>Menu Management</h2>
+
+<div class="menu-actions">
+    <button id="add-item-btn" class="btn btn-primary">Add New Item</button>
+    <form method="GET" class="search-form">
+        <input type="text" name="search" placeholder="Search menu items..." value="{{ search_query }}">
+        <button type="submit" class="btn btn-secondary">Search</button>
+    </form>
+</div>
+
+<div id="add-item-form" class="form-container" style="display: none;">
+    <h3>Add Menu Item</h3>
+    <form method="POST">
+        <input type="hidden" name="add_item" value="1">
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Description:</label>
+            <textarea id="description" name="description"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="price">Price:</label>
+            <input type="number" id="price" name="price" step="0.01" required>
+        </div>
+        <div class="form-group">
+            <label for="category">Category:</label>
+            <select id="category" name="category">
+                <option value="Beverages">Beverages</option>
+                <option value="Bakery">Bakery</option>
+                <option value="Food">Food</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Item</button>
+        <button type="button" id="cancel-add" class="btn btn-secondary">Cancel</button>
+    </form>
+</div>
+
+<div class="menu-items">
+    {% for item in menu_items %}
+    <div class="menu-item">
+        <div class="item-info">
+            <h3>{{ item.name }}</h3>
+            <p>{{ item.description }}</p>
+            <p class="price">₹{{ "%.2f"|format(item.price) }}</p>
+            <p class="category">{{ item.category }}</p>
+            <p class="availability">{% if item.available %}Available{% else %}Unavailable{% endif %}</p>
+        </div>
+        <div class="item-actions">
+            <button class="btn btn-secondary edit-btn" data-id="{{ item.id }}">Edit</button>
+            <form method="POST" style="display: inline;">
+                <input type="hidden" name="delete_item" value="1">
+                <input type="hidden" name="item_id" value="{{ item.id }}">
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Edit form (hidden by default) -->
+<div id="edit-item-form" class="form-container" style="display: none;">
+    <h3>Edit Menu Item</h3>
+    <form method="POST">
+        <input type="hidden" name="edit_item" value="1">
+        <input type="hidden" id="edit-item-id" name="item_id">
+        <div class="form-group">
+            <label for="edit-name">Name:</label>
+            <input type="text" id="edit-name" name="name" required>
+        </div>
+        <div class="form-group">
+            <label for="edit-description">Description:</label>
+            <textarea id="edit-description" name="description"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="edit-price">Price:</label>
+            <input type="number" id="edit-price" name="price" step="0.01" required>
+        </div>
+        <div class="form-group">
+            <label for="edit-category">Category:</label>
+            <select id="edit-category" name="category">
+                <option value="Beverages">Beverages</option>
+                <option value="Bakery">Bakery</option>
+                <option value="Food">Food</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="edit-available">
+                <input type="checkbox" id="edit-available" name="available" checked> Available
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Item</button>
+        <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
+    </form>
+</div>
+{% endblock %}

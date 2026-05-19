@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Bill for Order #{{ order.id }} - Continental Cafe{% endblock %}
+
+{% block content %}
+<div class="bill-container">
+    <h2>Bill for Order #{{ order.id }}</h2>
+
+    <div class="bill-header">
+        <div class="bill-info">
+            <h3>Continental Cafe</h3>
+            <p>Order #{{ order.id }}</p>
+            <p>Customer: {{ order.customer_name or 'Walk-in' }}</p>
+            <p>Table: {{ order.table_number }}</p>
+            <p>Date: {{ order.order_time.strftime('%Y-%m-%d %H:%M') }}</p>
+        </div>
+    </div>
+
+    <table class="bill-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order_items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>₹{{ "%.2f"|format(item.price) }}</td>
+                <td>₹{{ "%.2f"|format(item.quantity * item.price) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3"><strong>Total</strong></td>
+                <td><strong>₹{{ "%.2f"|format(order.total_amount) }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {% if order.status != 'served' %}
+    <div class="payment-form">
+        <h3>Process Payment</h3>
+        <form method="POST" action="{{ url_for('process_payment', order_id=order.id) }}">
+            <div class="form-group">
+                <label for="payment_method">Payment Method:</label>
+                <select id="payment_method" name="payment_method" required>
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="online">Online</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount:</label>
+                <input type="number" id="amount" name="amount" step="0.01" value="{{ "%.2f"|format(order.total_amount) }}" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Process Payment</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="payment-status">
+        <p><strong>Payment Status:</strong> Paid</p>
+        <button onclick="window.print()" class="btn btn-secondary">Print Bill</button>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

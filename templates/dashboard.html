@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Continental Cafe{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Dashboard Overview</h2>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="icon">📋</span>
+            <div class="value">{{ stats.today_orders }}</div>
+            <div class="label">Today's Orders</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">💰</span>
+            <div class="value">₹{{ "%.2f"|format(stats.today_revenue) }}</div>
+            <div class="label">Today's Revenue</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">🍽️</span>
+            <div class="value">{{ stats.menu_count }}</div>
+            <div class="label">Menu Items</div>
+        </div>
+        <div class="stat-card">
+            <span class="icon">⏳</span>
+            <div class="value">{{ stats.pending_orders }}</div>
+            <div class="label">Pending Orders</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <h3>Quick Actions</h3>
+    <div class="quick-actions-grid">
+        <a href="{{ url_for('orders') }}" class="btn btn-primary">
+            <span>📝</span>
+            New Order
+        </a>
+        <a href="{{ url_for('menu') }}" class="btn btn-secondary">
+            <span>🍽️</span>
+            Manage Menu
+        </a>
+        <a href="{{ url_for('reports') }}" class="btn btn-secondary">
+            <span>📊</span>
+            View Reports
+        </a>
+        <a href="{{ url_for('about') }}" class="btn btn-secondary">
+            <span>ℹ️</span>
+            About System
+        </a>
+    </div>
+</div>
+{% endblock %}

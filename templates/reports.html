@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Continental Cafe{% endblock %}
+
+{% block content %}
+<h2>Reports</h2>
+
+<h3>Daily Sales Report</h3>
+<table class="report-table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Orders</th>
+            <th>Revenue</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for day in daily_sales %}
+        <tr>
+            <td>{{ day.date }}</td>
+            <td>{{ day.orders_count }}</td>
+            <td>₹{{ "%.2f"|format(day.total_revenue) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Popular Items</h3>
+<table class="report-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Total Quantity Sold</th>
+            <th>Total Revenue</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in popular_items %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.total_quantity }}</td>
+            <td>₹{{ "%.2f"|format(item.total_revenue) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
