@@ -65,7 +65,21 @@ def get_db_connection():
             f"Missing database configuration: {', '.join(missing)}. "
             "Set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME, or provide DB_URL/DATABASE_URL/MYSQL_DATABASE_URL."
         )
-    return mysql.connector.connect(**DB_CONFIG)
+    try:
+        return mysql.connector.connect(**DB_CONFIG)
+    except Error as err:
+        app.logger.error('Database connection failed: %s', err)
+        raise RuntimeError('Unable to connect to the configured database. Check DB_HOST/DB_USER/DB_PASSWORD/DB_NAME or DB_URL/DATABASE_URL.') from err
+
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    app.logger.exception('Unhandled exception during request')
+    if isinstance(error, RuntimeError):
+        message = str(error)
+    else:
+        message = 'The server encountered an internal error and was unable to complete your request.'
+    return render_template('error.html', message=message), 500
 
 
 def init_admin_user():

@@ -1,0 +1,15 @@
+{% extends 'public_base.html' %}
+
+{% block title %}Server Error{% endblock %}
+
+{% block content %}
+<section class="error-page container">
+    <div class="error-box">
+        <h2>Internal Server Error</h2>
+        <p>{{ message }}</p>
+        <div class="error-actions">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">Return to Home</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
