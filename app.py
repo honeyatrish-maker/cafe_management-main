@@ -91,8 +91,14 @@ class SQLiteConnection(sqlite3.Connection):
 
 
 def build_sqlite_connection():
-    os.makedirs(INSTANCE_DIR, exist_ok=True)
-    conn = sqlite3.connect(SQLITE_DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES, factory=SQLiteConnection)
+    try:
+        os.makedirs(INSTANCE_DIR, exist_ok=True)
+        conn = sqlite3.connect(SQLITE_DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES, factory=SQLiteConnection)
+    except (OSError, sqlite3.OperationalError) as err:
+        app.logger.error('Unable to open SQLite DB file %s: %s', SQLITE_DB_PATH, err)
+        app.logger.warning('Falling back to in-memory SQLite database.')
+        conn = sqlite3.connect(':memory:', detect_types=sqlite3.PARSE_DECLTYPES, factory=SQLiteConnection)
+
     conn.row_factory = sqlite3.Row
     ensure_sqlite_schema(conn)
     return conn
@@ -225,6 +231,7 @@ def insert_sqlite_sample_data(conn):
 
 DB_CONFIG = build_db_config()
 USE_MYSQL = bool(DB_CONFIG['host'] and DB_CONFIG['user'] and DB_CONFIG['password'] and DB_CONFIG['database'])
+TODAY_FUNCTION = 'CURDATE()' if USE_MYSQL else "date('now')"
 
 # Database configuration (use environment variables on Render)
 
@@ -284,8 +291,9 @@ def init_admin_user():
 
         cursor.close()
         conn.close()
-    except Error as err:
-        print('Admin user initialization failed:', err)
+    except Exception as err:
+        app.logger.exception('Admin user initialization failed')
+
 
 def login_required(f):
     @wraps(f)
@@ -375,11 +383,11 @@ def dashboard():
     cursor = conn.cursor(dictionary=True)
 
     # Get today's orders count
-    cursor.execute("SELECT COUNT(*) as count FROM orders WHERE DATE(order_time) = CURDATE()")
+    cursor.execute(f"SELECT COUNT(*) as count FROM orders WHERE DATE(order_time) = {TODAY_FUNCTION}")
     today_orders = cursor.fetchone()['count']
 
     # Get today's revenue
-    cursor.execute("SELECT SUM(total_amount) as revenue FROM orders WHERE DATE(order_time) = CURDATE() AND status != 'cancelled'")
+    cursor.execute(f"SELECT SUM(total_amount) as revenue FROM orders WHERE DATE(order_time) = {TODAY_FUNCTION} AND status != 'cancelled'")
     today_revenue = cursor.fetchone()['revenue'] or 0
 
     # Get total menu items
