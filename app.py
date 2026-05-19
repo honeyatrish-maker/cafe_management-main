@@ -61,6 +61,14 @@ def build_db_config():
     )
     config['port'] = int(get_env_var('DB_PORT', 'MYSQL_PORT', 'PORT', default=str(config.get('port', 3306))))
 
+    app.logger.info(
+        "DB config detection: host=%s user=%s database=%s port=%s",
+        bool(config.get('host')),
+        bool(config.get('user')),
+        bool(config.get('database')),
+        config.get('port')
+    )
+
     return config
 
 # Database configuration (use environment variables on Render)
